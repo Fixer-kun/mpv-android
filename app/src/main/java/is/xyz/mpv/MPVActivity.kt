@@ -2031,8 +2031,8 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
     private var initialSeek = 0f
     private var initialBright = 0f
-    private var initialVolume = 0
-    private var maxVolume = 0
+    private var initialVolume = 0.0
+    private var maxVolume = 0.0
     /** 0 = initial, 1 = paused, 2 = was already paused */
     private var pausedForSeek = 0
 
@@ -2052,15 +2052,14 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
                 initialSeek = (psc.position / 1000f)
                 initialBright = Utils.getScreenBrightness(this) ?: 0.5f
-                with (audioManager!!) {
-                    initialVolume = getStreamVolume(STREAM_TYPE)
-                    maxVolume = if (isVolumeFixed)
-                        0
-                    else
-                        getStreamMaxVolume(STREAM_TYPE)
-                }
+                // Volume gesture controls mpv's own "volume" property (not the system
+                // stream), so it respects volume-max from mpv.conf and can go past 100%.
+                // If mpv can't answer (shouldn't happen - config loads before playback),
+                // skip this gesture cycle rather than guessing a value.
+                initialVolume = MPVLib.getPropertyDouble("volume") ?: return
+                maxVolume = MPVLib.getPropertyDouble("volume-max") ?: return
                 if (!isPlayingAudio)
-                    maxVolume = 0 // disallow volume gesture if no audio
+                    maxVolume = 0.0 // disallow volume gesture if no audio
                 pausedForSeek = 0
 
                 fadeHandler.removeCallbacks(fadeRunnable3)
@@ -2095,13 +2094,17 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
                 gestureTextView.text = getString(R.string.ui_seek_distance, posText, diffText)
             }
             PropertyChange.Volume -> {
-                if (maxVolume == 0)
+                if (maxVolume == 0.0)
                     return
-                val newVolume = (initialVolume + (diff * maxVolume).toInt()).coerceIn(0, maxVolume)
-                val newVolumePercent = 100 * newVolume / maxVolume
-                audioManager!!.setStreamVolume(STREAM_TYPE, newVolume, 0)
+                // Sensitivity is scaled against a fixed 100.0 range (not maxVolume) so a
+                // full swipe always covers about the same range regardless of how high
+                // volume-max is set - otherwise gestures get twitchy at high boost levels.
+                // The result can still go above 100 (shown as-is, no re-normalization)
+                // since mpv's "volume" is already a direct 0..volume-max percentage.
+                val newVolume = (initialVolume + diff * 50.0).coerceIn(0.0, maxVolume)
+                MPVLib.setPropertyDouble("volume", newVolume)
 
-                gestureTextView.text = getString(R.string.ui_volume, newVolumePercent)
+                gestureTextView.text = getString(R.string.ui_volume, newVolume.roundToInt())
             }
             PropertyChange.Bright -> {
                 val newBrightPercent = ((initialBright + diff).coerceIn(0f, 1f) * 100).roundToInt()
