@@ -2096,7 +2096,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
             PropertyChange.Volume -> {
                 if (maxVolume == 0.0)
                     return
-                // Sensitivity is scaled against a fixed 100.0 range (not maxVolume) so a
+                // Sensitivity is scaled against a fixed 50.0 range (not maxVolume) so a
                 // full swipe always covers about the same range regardless of how high
                 // volume-max is set - otherwise gestures get twitchy at high boost levels.
                 // The result can still go above 100 (shown as-is, no re-normalization)
