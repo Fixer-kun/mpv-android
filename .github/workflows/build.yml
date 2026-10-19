@@ -17,15 +17,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # Exact-match caching: Fast builds when unchanged, clean rebuilds when updated
-      - name: Cache buildscripts prefix/SDK/NDK
-        uses: actions/cache@v6
-        with:
-          path: |
-            buildscripts/android-sdk-linux
-            buildscripts/prefix
-          key: v1-mpv-android-arm64-${{ runner.os }}-${{ hashFiles('buildscripts/**') }}
-
       - name: Install host build dependencies
         run: |
           sudo apt-get update
